@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal de Simuladors - Institut Granollers EMT</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+    .iframe-container {
+      height: calc(100vh - 81px);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between antialiased bg-slate-950">
+
+  <!-- HEADER / NAVIGATION BAR -->
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- LOGO + BRANDING -->
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center bg-white px-3 py-1.5 rounded-xl shadow-md border border-slate-200 shrink-0">
+          <svg class="h-8 w-auto" viewBox="0 0 320 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Left Text: institut granollers -->
+            <text x="5" y="36" font-family="'Inter', -apple-system, sans-serif" font-weight="900" font-size="34" fill="#262626">institut</text>
+            <text x="5" y="74" font-family="'Inter', -apple-system, sans-serif" font-weight="700" font-size="36" fill="#737373">granollers</text>
+            <!-- Right Badge: EMT -->
+            <rect x="175" y="8" width="135" height="74" rx="16" fill="#C82829"/>
+            <text x="242" y="60" font-family="'Inter', -apple-system, sans-serif" font-weight="900" font-size="48" fill="#FFFFFF" text-anchor="middle">EMT</text>
+          </svg>
+        </div>
+
+        <div class="hidden sm:block border-l border-slate-800 pl-4">
+          <h1 class="font-bold text-base leading-tight text-slate-100">Portal de Simuladors</h1>
+          <p class="text-xs text-slate-400">Electrotècnia i Sistemes de Potència</p>
+        </div>
+      </div>
+
+      <!-- SIMULATOR SELECTOR TABS -->
+      <div class="flex items-center gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+        
+        <!-- Tab 1: Sinus / Cosinus -->
+        <button id="btn-trig" onclick="loadSimulator('trig')" 
+          class="sim-tab flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all bg-sky-500 text-white shadow-sm">
+          <i data-lucide="compass" class="w-4 h-4"></i>
+          <span>1. Sinus i  Cosinus</span>
+        </button>
+
+        <!-- Tab 2: Harmònics -->
+        <button id="btn-harmonics" onclick="loadSimulator('harmonics')" 
+          class="sim-tab flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60">
+          <i data-lucide="activity" class="w-4 h-4"></i>
+          <span>2. Harmònics i FP</span>
+        </button>
+
+        <!-- Tab 3: PID -->
+        <button id="btn-PID" onclick="loadSimulator('PID')" 
+          class="sim-tab flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60">
+          <i data-lucide="activity" class="w-4 h-4"></i>
+          <span>3. PID</span>
+        </button>        
+
+      </div>
+
+      <!-- EXTERNAL ACTIONS -->
+      <div class="hidden md:flex items-center gap-2">
+        <a id="btn-open-newtab" href="#" target="_blank" title="Obrir en una pestanya nova"
+          class="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg border border-slate-800 transition-colors">
+          <i data-lucide="external-link" class="w-4 h-4"></i>
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- MAIN DISPLAY AREA (IFRAME) -->
+  <main class="w-full flex-grow bg-slate-950 relative">
+    <iframe id="sim-frame" src="Sinus_cosinus.html" class="w-full h-full border-0 min-h-[calc(100vh-80px)]"></iframe>
+  </main>
+
+  <script>
+    // Configuration of file paths
+    const simulators = {
+      'trig': {
+        file: 'Sinus_cosinus.html',
+        title: 'Trigonometria: Sinus i Cosinus'
+      },
+      'harmonics': {
+        file: 'Simulador_Harmonics_Factor_Potencia.html',
+        title: 'Simulador d\'Harmònics i Factor de Potència'
+      },
+      'PID': {
+        file: 'simulador_PID.html',
+        title: 'Simulador PID'
+      }
+    };
+
+    let currentKey = 'trig';
+
+    function loadSimulator(key) {
+      if (!simulators[key]) return;
+      currentKey = key;
+
+      const iframe = document.getElementById('sim-frame');
+      const openBtn = document.getElementById('btn-open-newtab');
+
+      // Update Iframe Source
+      iframe.src = simulators[key].file;
+      openBtn.href = simulators[key].file;
+
+      // Update Tab Styles
+      document.querySelectorAll('.sim-tab').forEach(btn => {
+        btn.classList.remove('bg-sky-500', 'text-white', 'shadow-sm');
+        btn.classList.add('text-slate-400', 'hover:text-slate-200', 'hover:bg-slate-800/60');
+      });
+
+      const activeBtn = document.getElementById(key === 'trig' ? 'btn-trig' : key === 'harmonics' ? 'btn-harmonics' :   'btn-PID');
+      if (activeBtn) {
+        activeBtn.classList.remove('text-slate-400', 'hover:text-slate-200', 'hover:bg-slate-800/60');
+        activeBtn.classList.add('bg-sky-500', 'text-white', 'shadow-sm');
+      }
+    }
+
+    window.onload = function() {
+      lucide.createIcons();
+      // Set initial open in new tab URL
+      document.getElementById('btn-open-newtab').href = simulators['trig'].file;
+    };
+  </script>
+</body>
+</html>

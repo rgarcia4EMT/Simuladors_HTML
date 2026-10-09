@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador d'Harmònics, Factor de Potència i Impedància de Xarxa</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- KaTeX for math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1e293b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+    }
+    input[type=range] {
+      accent-color: #38bdf8;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between antialiased selection:bg-sky-500 selection:text-white">
+
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-sky-500/10 border border-sky-500/30 rounded-xl text-sky-400">
+          <i data-lucide="activity" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight text-slate-100">Simulador d'Harmònics i Impedància de Xarxa</h1>
+          <p class="text-xs text-slate-400">Caiguda de Tensió, Distorsió ($\text{THD}_I$ / $\text{THD}_V$) i Factor de Potència</p>
+        </div>
+      </div>
+
+      <!-- Presets quick buttons -->
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs text-slate-400 font-medium mr-1 hidden sm:inline">Presets:</span>
+        <button onclick="applyPreset('linear')" class="px-2.5 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-colors flex items-center gap-1.5">
+          <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i> Xarxa Ideal
+        </button>
+
+        <button onclick="applyPreset('motor_direct')" class="px-2.5 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-colors flex items-center gap-1.5">
+          <i data-lucide="cog" class="w-3.5 h-3.5 text-sky-400"></i> Motor Inductiu
+        </button>
+
+        <button onclick="applyPreset('motor_vfd')" class="px-2.5 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-colors flex items-center gap-1.5">
+          <i data-lucide="cpu" class="w-3.5 h-3.5 text-purple-400"></i> Motor amb Variador (VFD)
+        </button>
+
+        <button onclick="applyPreset('smps')" class="px-2.5 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-colors flex items-center gap-1.5">
+          <i data-lucide="monitor" class="w-3.5 h-3.5 text-emerald-400"></i> Informàtica / LED
+        </button>
+
+        <button onclick="applyPreset('weak_grid')" class="px-2.5 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-colors flex items-center gap-1.5">
+          <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-rose-400"></i> Xarxa Feble
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl w-full mx-auto px-4 py-6 flex-grow grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- LEFT COLUMN: Controls & Impedance (4 cols) -->
+    <div class="lg:col-span-4 flex flex-col gap-6">
+      
+      <!-- Fundamental Parameters Card -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h2 class="font-semibold text-sky-400 flex items-center gap-2">
+            <i data-lucide="sliders" class="w-4 h-4"></i> Paràmetres de Font i Càrrega
+          </h2>
+          <span class="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">50 Hz</span>
+        </div>
+
+        <!-- Tensió Font -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-sm">
+            <label for="slider-vrms" class="text-slate-300 font-medium">Tensió de Font ($V_{\text{xarxa,rms}}$):</label>
+            <span id="val-vrms" class="font-mono text-amber-400 font-semibold">230 V</span>
+          </div>
+          <input type="range" id="slider-vrms" min="100" max="400" value="230" step="5" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <!-- Desfasament (Phi) -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-sm">
+            <label for="slider-phi" class="text-slate-300 font-medium">Desfasament ($\varphi$):</label>
+            <span id="val-phi" class="font-mono text-sky-400 font-semibold">0°</span>
+          </div>
+          <input type="range" id="slider-phi" min="-90" max="90" value="0" step="1" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <!-- Amplitude I_1 rms -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-sm">
+            <label for="slider-i1" class="text-slate-300 font-medium">Corrent Fonamental ($I_{1,\text{rms}}$):</label>
+            <span id="val-i1" class="font-mono text-cyan-400 font-semibold">15.0 A</span>
+          </div>
+          <input type="range" id="slider-i1" min="0" max="40" value="15" step="0.5" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+        </div>
+      </div>
+
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4 border-l-4 border-l-orange-500">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h2 class="font-semibold text-orange-400 flex items-center gap-2">
+            <i data-lucide="git-commit" class="w-4 h-4"></i> Impedància de Línia / Cable
+          </h2>
+          <span class="text-[10px] bg-orange-500/10 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded font-mono">Caiguda $V$</span>
+        </div>
+
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Simula la resistència i inductància de la línia elèctrica des del transformador fins a la càrrega.
+        </p>
+
+        <!-- Resistència Cable R_grid -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs">
+            <span class="text-slate-300">Resistència de Línia ($R_{\text{cable}}$):</span>
+            <span id="val-rcable" class="font-mono text-orange-400 font-medium">0.40 Ω</span>
+          </div>
+          <input type="range" id="slider-rcable" min="0" max="2" value="0.4" step="0.05" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <!-- Inductància Cable L_grid -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs">
+            <span class="text-slate-300">Inductància de Línia ($L_{\text{cable}}$):</span>
+            <span id="val-lcable" class="font-mono text-amber-400 font-medium">0.8 mH</span>
+          </div>
+          <input type="range" id="slider-lcable" min="0" max="3" value="0.8" step="0.1" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+          <div class="text-[10px] text-slate-500 flex justify-between font-mono">
+            <span>Reactància 50Hz: <span id="val-xl1">0.25 Ω</span></span>
+            <span>EFECTE INDUCTIU ($L \cdot di/dt$)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Harmonics Controls Card -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h2 class="font-semibold text-sky-400 flex items-center gap-2">
+            <i data-lucide="layers" class="w-4 h-4"></i> Generador d'Harmònics de Corrent
+          </h2>
+          <button onclick="resetHarmonics()" class="text-xs text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1">
+            <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Netejar
+          </button>
+        </div>
+
+        <!-- Sliders -->
+        <div class="space-y-3 pt-1">
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-300">3r Harmònic <span class="text-slate-500">(150 Hz)</span></span>
+              <span id="val-h3" class="font-mono text-indigo-400 font-medium">40%</span>
+            </div>
+            <input type="range" id="slider-h3" min="0" max="100" value="40" step="1" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-300">5è Harmònic <span class="text-slate-500">(250 Hz)</span></span>
+              <span id="val-h5" class="font-mono text-purple-400 font-medium">25%</span>
+            </div>
+            <input type="range" id="slider-h5" min="0" max="100" value="25" step="1" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-300">7è Harmònic <span class="text-slate-500">(350 Hz)</span></span>
+              <span id="val-h7" class="font-mono text-pink-400 font-medium">15%</span>
+            </div>
+            <input type="range" id="slider-h7" min="0" max="100" value="15" step="1" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-300">9è Harmònic <span class="text-slate-500">(450 Hz)</span></span>
+              <span id="val-h9" class="font-mono text-rose-400 font-medium">0%</span>
+            </div>
+            <input type="range" id="slider-h9" min="0" max="100" value="0" step="1" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-300">11è Harmònic <span class="text-slate-500">(550 Hz)</span></span>
+              <span id="val-h11" class="font-mono text-orange-400 font-medium">0%</span>
+            </div>
+            <input type="range" id="slider-h11" min="0" max="100" value="0" step="1" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Dashboard & Visualizations (8 cols) -->
+    <div class="lg:col-span-8 space-y-6">
+
+      <!-- KEY METRICS BANNER -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        
+        <!-- THD_I -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
+          <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Distorsió Corrent</span>
+          <div class="my-1">
+            <span id="metric-thdi" class="text-2xl md:text-3xl font-bold text-emerald-400 font-mono">49.2 %</span>
+          </div>
+          <span class="text-[11px] text-slate-500">$\text{THD}_I$ (Generada per càrrega)</span>
+        </div>
+
+        <!-- THD_V Resultant -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg flex flex-col justify-between border-r-2 border-r-orange-500">
+          <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Distorsió Tensió</span>
+          <div class="my-1">
+            <span id="metric-thdv" class="text-2xl md:text-3xl font-bold text-orange-400 font-mono">5.2 %</span>
+          </div>
+          <span class="text-[11px] text-slate-500">$\text{THD}_V$ (Resultant a xarxa)</span>
+        </div>
+
+        <!-- Real Power Factor -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
+          <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Factor Potència</span>
+          <div class="my-1">
+            <span id="metric-pf" class="text-2xl md:text-3xl font-bold text-amber-400 font-mono">0.897</span>
+          </div>
+          <span class="text-[11px] text-slate-500">$\text{FP} = P / S$</span>
+        </div>
+
+        <!-- Voltage Drop -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
+          <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Tensió a la Càrrega</span>
+          <div class="my-1">
+            <span id="metric-vload" class="text-2xl md:text-3xl font-bold text-rose-400 font-mono">222 V</span>
+          </div>
+          <span id="metric-vdrop" class="text-[11px] text-slate-400">Caiguda $\Delta V = 8\text{ V}$</span>
+        </div>
+      </div>
+
+      <!-- MAIN OSCILLOSCOPE CANVAS -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="waves" class="w-5 h-5 text-sky-400"></i>
+            <h2 class="font-semibold text-slate-200">Oscil·loscopi: Tensió Font, Tensió Càrrega i Corrent</h2>
+          </div>
+          <div class="flex items-center space-x-4 text-xs font-medium">
+            <span class="flex items-center gap-1.5 text-amber-400/60"><span class="w-3 h-0.5 bg-amber-400 border border-dashed"></span> $v_{\text{font}}$ (Ideal)</span>
+            <span class="flex items-center gap-1.5 text-orange-400"><span class="w-3 h-0.5 bg-orange-500 rounded"></span> $v_{\text{càrrega}}$ (Deformada)</span>
+            <span class="flex items-center gap-1.5 text-cyan-400"><span class="w-3 h-0.5 bg-cyan-400 rounded"></span> Corrent $i(t)$</span>
+          </div>
+        </div>
+
+        <!-- Harmonic View Selectors -->
+        <div class="flex flex-wrap items-center justify-between gap-2 text-xs bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+          <span class="text-slate-400 font-medium flex items-center gap-1.5">
+            <i data-lucide="eye" class="w-3.5 h-3.5 text-indigo-400"></i>
+            Visualitzar a l'oscil·loscopi:
+          </span>
+          <div class="flex flex-wrap items-center gap-3">
+            <label class="flex items-center gap-1.5 cursor-pointer text-slate-300">
+              <input type="checkbox" id="chk-vgrid" checked class="rounded border-slate-700 bg-slate-800 text-amber-500 focus:ring-0"> $v_{\text{font}}$ Ideal
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer text-orange-300">
+              <input type="checkbox" id="chk-vload" checked class="rounded border-slate-700 bg-slate-800 text-orange-500 focus:ring-0"> $v_{\text{càrrega}}$ Deformada
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer text-indigo-300">
+              <input type="checkbox" id="chk-h3" class="rounded border-slate-700 bg-slate-800 text-indigo-500 focus:ring-0"> 3r (150Hz)
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer text-purple-300">
+              <input type="checkbox" id="chk-h5" class="rounded border-slate-700 bg-slate-800 text-purple-500 focus:ring-0"> 5è (250Hz)
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer text-pink-300">
+              <input type="checkbox" id="chk-h7" class="rounded border-slate-700 bg-slate-800 text-pink-500 focus:ring-0"> 7è (350Hz)
+            </label>
+          </div>
+        </div>
+
+        <div class="relative w-full h-72 bg-slate-950 rounded-xl overflow-hidden border border-slate-800/80">
+          <canvas id="waveformCanvas" class="w-full h-full block"></canvas>
+        </div>
+      </div>
+
+      <!-- CHARTS GRID: Spectrum & Power Breakdown -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <!-- Frequency Spectrum -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 class="font-semibold text-slate-200 text-sm flex items-center gap-2">
+              <i data-lucide="bar-chart-3" class="w-4 h-4 text-indigo-400"></i> Espectre d'Harmònics de Corrent
+            </h3>
+            <span class="text-[11px] text-slate-500 font-mono">Amps RMS</span>
+          </div>
+          <div class="h-48 bg-slate-950 rounded-xl overflow-hidden border border-slate-800/80 p-2">
+            <canvas id="spectrumCanvas" class="w-full h-full block"></canvas>
+          </div>
+        </div>
+
+        <!-- Power & Impedance Summary -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 class="font-semibold text-slate-200 text-sm flex items-center gap-2">
+              <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i> Balanç de Potència a la Càrrega
+            </h3>
+            <span class="text-[11px] text-slate-500 font-mono">P, Q, D, S</span>
+          </div>
+          
+          <div class="h-48 bg-slate-950 rounded-xl overflow-hidden border border-slate-800/80 p-3 flex flex-col justify-between">
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div class="p-2 bg-slate-900/80 rounded-lg border border-slate-800">
+                <span class="text-slate-400 block text-[10px]">POTÈNCIA ACTIVA (P)</span>
+                <span id="val-p" class="text-sm font-bold font-mono text-emerald-400">3450 W</span>
+              </div>
+              <div class="p-2 bg-slate-900/80 rounded-lg border border-slate-800">
+                <span class="text-slate-400 block text-[10px]">POTÈNCIA REACTIVA (Q)</span>
+                <span id="val-q" class="text-sm font-bold font-mono text-sky-400">0 var</span>
+              </div>
+              <div class="p-2 bg-slate-900/80 rounded-lg border border-slate-800">
+                <span class="text-slate-400 block text-[10px]">POTÈNCIA DISTORSIÓ (D)</span>
+                <span id="val-d" class="text-sm font-bold font-mono text-rose-400">1700 var</span>
+              </div>
+              <div class="p-2 bg-slate-900/80 rounded-lg border border-slate-800">
+                <span class="text-slate-400 block text-[10px]">POTÈNCIA APARENT (S)</span>
+                <span id="val-s" class="text-sm font-bold font-mono text-amber-400">3845 VA</span>
+              </div>
+            </div>
+
+            <!-- Mini Visual Power Bar -->
+            <div class="space-y-1">
+              <div class="flex justify-between text-[10px] text-slate-400">
+                <span>Rendiment Factor de Potència ($P/S$)</span>
+                <span id="val-eff-percent" class="font-mono text-slate-200">89.7%</span>
+              </div>
+              <div class="w-full h-3 bg-slate-800 rounded-full overflow-hidden flex">
+                <div id="bar-p" class="bg-emerald-500 h-full transition-all" style="width: 89%"></div>
+                <div id="bar-q" class="bg-sky-500 h-full transition-all" style="width: 0%"></div>
+                <div id="bar-d" class="bg-rose-500 h-full transition-all" style="width: 11%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- EDUCATIONAL THEORY SECTION -->
+  <section class="max-w-7xl w-full mx-auto px-4 py-8 border-t border-slate-800">
+    <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 md:p-8 space-y-6">
+      
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 bg-orange-500/10 border border-orange-500/30 rounded-xl text-orange-400">
+          <i data-lucide="book-open" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h2 class="text-xl font-bold text-slate-100">Física de la Distorsió de Tensió ($\text{THD}_V$)</h2>
+          <p class="text-xs text-slate-400">Com el corrent deformat contamina la tensió de la instal·lació</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-slate-300 leading-relaxed">
+        
+        <!-- Concept 1 -->
+        <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-5 space-y-3">
+          <h3 class="font-semibold text-orange-400 flex items-center gap-2">
+            <i data-lucide="git-pull-request" class="w-4 h-4"></i> L'Efecte de la Impedància
+          </h3>
+          <p class="text-xs text-slate-400">
+            La tensió del generador o transformador és gairebé ideal. Tanmateix, els cables tenen una resistència $R$ i una inductància $L$. La tensió a la càrrega compleix:
+          </p>
+          <div class="p-2 bg-slate-900 rounded font-mono text-[11px] text-orange-300 text-center border border-slate-800">
+            $v_{\text{càrrega}}(t) = v_{\text{font}}(t) - R \cdot i(t) - L \cdot \frac{di(t)}{dt}$
+          </div>
+          <p class="text-xs text-slate-400">
+            Com més gran és el corrent $i(t)$, més gran és la caiguda de tensió i la deformació de l'ona de tensió.
+          </p>
+        </div>
+
+        <!-- Concept 2 -->
+        <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-5 space-y-3">
+          <h3 class="font-semibold text-amber-400 flex items-center gap-2">
+            <i data-lucide="zap-off" class="w-4 h-4"></i> Per què la Inductància és Crítica?
+          </h3>
+          <p class="text-xs text-slate-400">
+            La caiguda de tensió inductiva depèn de la derivada del corrent ($\frac{di}{dt}$). Per a un harmònic d'ordre $h$ (ex. 5è harmònic = 250Hz), la reactància és $h$ vegades major:
+          </p>
+          <div class="p-2 bg-slate-900 rounded font-mono text-[11px] text-amber-300 text-center border border-slate-800">
+            $X_{L,h} = h \cdot \omega \cdot L = h \cdot X_{L1}$
+          </div>
+          <p class="text-xs text-slate-400">
+            Això fa que els harmònics d'alta freqüència provoquin <strong>caigudes de tensió molt més pronunciades</strong> i aplanin els pics de l'ona de tensió.
+          </p>
+        </div>
+
+        <!-- Concept 3 -->
+        <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-5 space-y-3">
+          <h3 class="font-semibold text-rose-400 flex items-center gap-2">
+            <i data-lucide="alert-octagon" class="w-4 h-4"></i> Limits Normatius ($\text{THD}_V$)
+          </h3>
+          <p class="text-xs text-slate-400">
+            Segons la norma **UNE-EN 50160**, la distorsió harmònica total de tensió ($\text{THD}_V$) en el punt de subministrament no ha de superar el **8%**.
+          </p>
+          <p class="text-xs text-slate-400">
+            Si la distorsió de tensió és elevada, motors elèctrics connectats a la mateixa xarxa s'escalfaran en abundància i equips electrònics sensibles poden fallar.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-800 py-4 text-center text-xs text-slate-500">
+    <p>Simulador d'Harmònics, Caiguda de Tensió i Impedància de Xarxa — Desenvolupat en Català</p>
+  </footer>
+
+  <script>
+    const state = {
+      vRms: 230,
+      phiDeg: 0,
+      i1Rms: 15.0,
+      rCable: 0.40,
+      lCable: 0.8e-3,
+      harmonics: { 3: 0.40, 5: 0.25, 7: 0.15, 9: 0, 11: 0 },
+      showGridV: true,
+      showLoadV: true,
+      showHarmonics: { 3: false, 5: false, 7: false, 9: false, 11: false }
+    };
+
+    let waveformCanvas, waveformCtx;
+    let spectrumCanvas, spectrumCtx;
+
+    let sliderVrms, valVrms;
+    let sliderPhi, valPhi;
+    let sliderI1, valI1;
+    let sliderRcable, valRcable;
+    let sliderLcable, valLcable, valXl1;
+
+    const harmonicSliders = {};
+    const harmonicVals = {};
+
+    let metricTHDI, metricTHDV, metricPF, metricVload, metricVdrop;
+    let valP, valQ, valD, valS, valEffPercent;
+    let barP, barQ, barD;
+
+    function initListeners() {
+      // DOM Elements setup
+      sliderVrms = document.getElementById('slider-vrms');
+      valVrms = document.getElementById('val-vrms');
+      sliderPhi = document.getElementById('slider-phi');
+      valPhi = document.getElementById('val-phi');
+      sliderI1 = document.getElementById('slider-i1');
+      valI1 = document.getElementById('val-i1');
+      sliderRcable = document.getElementById('slider-rcable');
+      valRcable = document.getElementById('val-rcable');
+      sliderLcable = document.getElementById('slider-lcable');
+      valLcable = document.getElementById('val-lcable');
+      valXl1 = document.getElementById('val-xl1');
+
+      metricTHDI = document.getElementById('metric-thdi');
+      metricTHDV = document.getElementById('metric-thdv');
+      metricPF = document.getElementById('metric-pf');
+      metricVload = document.getElementById('metric-vload');
+      metricVdrop = document.getElementById('metric-vdrop');
+
+      valP = document.getElementById('val-p');
+      valQ = document.getElementById('val-q');
+      valD = document.getElementById('val-d');
+      valS = document.getElementById('val-s');
+      valEffPercent = document.getElementById('val-eff-percent');
+
+      barP = document.getElementById('bar-p');
+      barQ = document.getElementById('bar-q');
+      barD = document.getElementById('bar-d');
+
+      waveformCanvas = document.getElementById('waveformCanvas');
+      spectrumCanvas = document.getElementById('spectrumCanvas');
+
+      waveformCtx = waveformCanvas.getContext('2d');
+      spectrumCtx = spectrumCanvas.getContext('2d');
+
+      // Fundamental Sliders
+      sliderVrms.addEventListener('input', (e) => {
+        state.vRms = parseFloat(e.target.value);
+        valVrms.textContent = `${state.vRms} V`;
+        updateCalculations();
+      });
+
+      sliderPhi.addEventListener('input', (e) => {
+        state.phiDeg = parseFloat(e.target.value);
+        valPhi.textContent = `${state.phiDeg > 0 ? '+' : ''}${Math.round(state.phiDeg)}°`;
+        updateCalculations();
+      });
+
+      sliderI1.addEventListener('input', (e) => {
+        state.i1Rms = parseFloat(e.target.value);
+        valI1.textContent = `${state.i1Rms.toFixed(1)} A`;
+        updateCalculations();
+      });
+
+      sliderRcable.addEventListener('input', (e) => {
+        state.rCable = parseFloat(e.target.value);
+        valRcable.textContent = `${state.rCable.toFixed(2)} Ω`;
+        updateCalculations();
+      });
+
+      sliderLcable.addEventListener('input', (e) => {
+        const mL = parseFloat(e.target.value);
+        state.lCable = mL / 1000;
+        valLcable.textContent = `${mL.toFixed(1)} mH`;
+        valXl1.textContent = `${(2 * Math.PI * 50 * state.lCable).toFixed(2)} Ω`;
+        updateCalculations();
+      });
+
+      // Harmonic Sliders
+      [3, 5, 7, 9, 11].forEach(h => {
+        const slider = document.getElementById(`slider-h${h}`);
+        const valSpan = document.getElementById(`val-h${h}`);
+        if (slider) {
+          harmonicSliders[h] = slider;
+          harmonicVals[h] = valSpan;
+          slider.addEventListener('input', (e) => {
+            const valPct = parseFloat(e.target.value);
+            state.harmonics[h] = valPct / 100;
+            if (valSpan) valSpan.textContent = `${valPct}%`;
+            updateCalculations();
+          });
+        }
+      });
+
+      // Checkboxes
+      const chkVgrid = document.getElementById('chk-vgrid');
+      if (chkVgrid) {
+        chkVgrid.addEventListener('change', (e) => {
+          state.showGridV = e.target.checked;
+          drawWaveforms();
+        });
+      }
+
+      const chkVload = document.getElementById('chk-vload');
+      if (chkVload) {
+        chkVload.addEventListener('change', (e) => {
+          state.showLoadV = e.target.checked;
+          drawWaveforms();
+        });
+      }
+
+      [3, 5, 7, 9, 11].forEach(h => {
+        const chk = document.getElementById(`chk-h${h}`);
+        if (chk) {
+          chk.addEventListener('change', (e) => {
+            state.showHarmonics[h] = e.target.checked;
+            drawWaveforms();
+          });
+        }
+      });
+
+      window.addEventListener('resize', resizeCanvases);
+    }
+
+    function applyPreset(type) {
+      if (type === 'linear') {
+        state.phiDeg = 0;
+        state.i1Rms = 15.0;
+        state.rCable = 0.10;
+        state.lCable = 0.2e-3;
+        state.harmonics = { 3: 0, 5: 0, 7: 0, 9: 0, 11: 0 };
+      } else if (type === 'motor_direct') {
+        state.phiDeg = 36.8; // cos(phi) = 0.80
+        state.i1Rms = 22.0;
+        state.rCable = 0.30;
+        state.lCable = 0.6e-3;
+        state.harmonics = { 3: 0, 5: 0, 7: 0, 9: 0, 11: 0 };
+      } else if (type === 'motor_vfd') {
+        state.phiDeg = 5; // cos(phi) approx 0.996
+        state.i1Rms = 20.0;
+        state.rCable = 0.40;
+        state.lCable = 0.8e-3;
+        state.harmonics = { 3: 0.10, 5: 0.45, 7: 0.22, 9: 0.05, 11: 0.12 };
+      } else if (type === 'smps') {
+        state.phiDeg = 10;
+        state.i1Rms = 15.0;
+        state.rCable = 0.40;
+        state.lCable = 0.8e-3;
+        state.harmonics = { 3: 0.65, 5: 0.40, 7: 0.25, 9: 0.15, 11: 0.08 };
+      } else if (type === 'weak_grid') {
+        state.phiDeg = 25;
+        state.i1Rms = 15.0;
+        state.rCable = 1.20;
+        state.lCable = 2.2e-3;
+        state.harmonics = { 3: 0.70, 5: 0.45, 7: 0.30, 9: 0.15, 11: 0.10 };
+      }
+
+      // Sync UI sliders
+      sliderPhi.value = state.phiDeg;
+      valPhi.textContent = `${state.phiDeg > 0 ? '+' : ''}${Math.round(state.phiDeg)}°`;
+
+      sliderI1.value = state.i1Rms;
+      valI1.textContent = `${state.i1Rms.toFixed(1)} A`;
+
+      sliderRcable.value = state.rCable;
+      valRcable.textContent = `${state.rCable.toFixed(2)} Ω`;
+
+      sliderLcable.value = (state.lCable * 1000).toFixed(1);
+      valLcable.textContent = `${(state.lCable * 1000).toFixed(1)} mH`;
+      valXl1.textContent = `${(2 * Math.PI * 50 * state.lCable).toFixed(2)} Ω`;
+
+      Object.keys(harmonicSliders).forEach(h => {
+        const p = Math.round(state.harmonics[h] * 100);
+        harmonicSliders[h].value = p;
+        harmonicVals[h].textContent = `${p}%`;
+      });
+
+      updateCalculations();
+    }
+
+    function resetHarmonics() {
+      Object.keys(harmonicSliders).forEach(h => {
+        state.harmonics[h] = 0;
+        harmonicSliders[h].value = 0;
+        harmonicVals[h].textContent = '0%';
+      });
+      updateCalculations();
+    }
+
+    function updateCalculations() {
+      const omega = 2 * Math.PI * 50; // 314.159 rad/s
+      const phiRad = (state.phiDeg * Math.PI) / 180;
+      const cosPhi = Math.cos(phiRad);
+
+      // Current Harmonic Calculations
+      let sumIHarmSq = 0;
+      Object.keys(state.harmonics).forEach(h => {
+        sumIHarmSq += Math.pow(state.harmonics[h] * state.i1Rms, 2);
+      });
+
+      const thdI = Math.sqrt(sumIHarmSq) / (state.i1Rms || 1);
+      const iTotalRms = Math.sqrt(Math.pow(state.i1Rms, 2) + sumIHarmSq);
+
+      // Voltage drop and Distortion calculations
+      // Fundamental voltage drop:
+      const XL1 = omega * state.lCable;
+      const Z1_real = state.rCable;
+      const Z1_imag = XL1;
+
+      // Fundamental load voltage components
+      // V_grid1 = Vrms angle 0
+      // I1 = I1rms angle (-phi)
+      const I1_real = state.i1Rms * Math.cos(-phiRad);
+      const I1_imag = state.i1Rms * Math.sin(-phiRad);
+
+      const Vdrop1_real = I1_real * Z1_real - I1_imag * Z1_imag;
+      const Vdrop1_imag = I1_real * Z1_imag + I1_imag * Z1_real;
+
+      const Vload1_real = state.vRms - Vdrop1_real;
+      const Vload1_imag = - Vdrop1_imag;
+
+      const Vload1_rms = Math.sqrt(Vload1_real * Vload1_real + Vload1_imag * Vload1_imag);
+
+      // Harmonic voltage drops V_h = I_h * Z_h
+      let sumVHarmSq = 0;
+      Object.keys(state.harmonics).forEach(h => {
+        const order = parseInt(h);
+        const Ih_rms = state.i1Rms * state.harmonics[h];
+        if (Ih_rms > 0) {
+          const Zh_mag = Math.sqrt(Math.pow(state.rCable, 2) + Math.pow(order * XL1, 2));
+          const Vh_rms = Ih_rms * Zh_mag;
+          sumVHarmSq += Math.pow(Vh_rms, 2);
+        }
+      });
+
+      const thdV = (Math.sqrt(sumVHarmSq) / Vload1_rms) * 100;
+      const Vload_total_rms = Math.sqrt(Math.pow(Vload1_rms, 2) + sumVHarmSq);
+      const Vdrop_total = state.vRms - Vload_total_rms;
+
+      // Powers at Load
+      const P = state.vRms * state.i1Rms * cosPhi; // Active power
+      const Q = state.vRms * state.i1Rms * Math.sin(phiRad); // Reactive power
+      const S = Vload_total_rms * iTotalRms; // Apparent power
+      const D = state.vRms * state.i1Rms * thdI; // Distortion power
+
+      const powerFactor = S > 0 ? (P / S) : 1;
+
+      // Update UI Indicators
+      metricTHDI.textContent = `${(thdI * 100).toFixed(1)} %`;
+      metricTHDV.textContent = `${thdV.toFixed(1)} %`;
+      metricPF.textContent = powerFactor.toFixed(3);
+      metricVload.textContent = `${Math.round(Vload_total_rms)} V`;
+      metricVdrop.textContent = `Caiguda ΔV = ${Math.abs(Math.round(Vdrop_total))} V`;
+
+      valP.textContent = `${Math.round(P)} W`;
+      valQ.textContent = `${Math.round(Math.abs(Q))} var`;
+      valD.textContent = `${Math.round(D)} var`;
+      valS.textContent = `${Math.round(S)} VA`;
+
+      const eff = (P / (S || 1)) * 100;
+      valEffPercent.textContent = `${eff.toFixed(1)}%`;
+
+      const totalBar = Math.abs(P) + Math.abs(Q) + D;
+      if (totalBar > 0) {
+        barP.style.width = `${(Math.abs(P) / totalBar) * 100}%`;
+        barQ.style.width = `${(Math.abs(Q) / totalBar) * 100}%`;
+        barD.style.width = `${(D / totalBar) * 100}%`;
+      }
+
+      drawWaveforms();
+      drawSpectrum();
+    }
+
+    function drawWaveforms() {
+      const width = waveformCanvas.width;
+      const height = waveformCanvas.height;
+
+      waveformCtx.clearRect(0, 0, width, height);
+
+      // Grid background
+      waveformCtx.strokeStyle = '#1e293b';
+      waveformCtx.lineWidth = 1;
+
+      waveformCtx.beginPath();
+      waveformCtx.moveTo(0, height / 2);
+      waveformCtx.lineTo(width, height / 2);
+      waveformCtx.stroke();
+
+      const numTicks = 8;
+      for (let i = 1; i < numTicks; i++) {
+        const x = (width / numTicks) * i;
+        waveformCtx.beginPath();
+        waveformCtx.moveTo(x, 0);
+        waveformCtx.lineTo(x, height);
+        waveformCtx.stroke();
+      }
+
+      const numCycles = 2;
+      const phiRad = (state.phiDeg * Math.PI) / 180;
+      const omega = 2 * Math.PI * 50;
+
+      const vGridPeak = state.vRms * Math.SQRT2;
+      const iFundamentalPeak = state.i1Rms * Math.SQRT2;
+
+      // Auto-scale calculations
+      let maxIPeak = 0;
+      for (let t = 0; t <= Math.PI * 2 * numCycles; t += 0.02) {
+        let val = Math.sin(t - phiRad);
+        Object.keys(state.harmonics).forEach(h => {
+          val += state.harmonics[h] * Math.sin(parseInt(h) * (t - phiRad));
+        });
+        if (Math.abs(val) > maxIPeak) maxIPeak = Math.abs(val);
+      }
+      maxIPeak *= iFundamentalPeak;
+      if (maxIPeak === 0) maxIPeak = 1;
+
+      const vScale = (height * 0.38) / (vGridPeak || 1);
+      const iScale = (height * 0.38) / maxIPeak;
+
+      // 1. Ideal Grid Voltage v_font(t) - Dashed Amber
+      if (state.showGridV) {
+        waveformCtx.beginPath();
+        waveformCtx.strokeStyle = 'rgba(251, 191, 36, 0.5)'; // amber-400 opacity
+        waveformCtx.setLineDash([4, 4]);
+        waveformCtx.lineWidth = 1.5;
+
+        for (let x = 0; x < width; x++) {
+          const t = (x / width) * (Math.PI * 2 * numCycles);
+          const vVal = vGridPeak * Math.sin(t);
+          const y = height / 2 - vVal * vScale;
+          if (x === 0) waveformCtx.moveTo(x, y);
+          else waveformCtx.lineTo(x, y);
+        }
+        waveformCtx.stroke();
+        waveformCtx.setLineDash([]);
+      }
+
+      // 2. Distorted Load Voltage v_carrega(t) = v_grid - R*i - L*di/dt - Solid Orange
+      if (state.showLoadV) {
+        waveformCtx.beginPath();
+        waveformCtx.strokeStyle = '#f97316'; // orange-500
+        waveformCtx.lineWidth = 2.5;
+
+        // dt equivalent in time array
+        const dtSeconds = (1 / 50 * numCycles) / width;
+
+        for (let x = 0; x < width; x++) {
+          const tRad = (x / width) * (Math.PI * 2 * numCycles);
+          const tSec = x * dtSeconds;
+
+          // v_grid(t)
+          const vG = vGridPeak * Math.sin(tRad);
+
+          // i(t) and di/dt
+          let iVal = iFundamentalPeak * Math.sin(tRad - phiRad);
+          let didtVal = omega * iFundamentalPeak * Math.cos(tRad - phiRad);
+
+          Object.keys(state.harmonics).forEach(h => {
+            const order = parseInt(h);
+            const IhPeak = iFundamentalPeak * state.harmonics[h];
+            iVal += IhPeak * Math.sin(order * (tRad - phiRad));
+            didtVal += order * omega * IhPeak * Math.cos(order * (tRad - phiRad));
+          });
+
+          // Voltage at load terminals
+          const vLoad = vG - (state.rCable * iVal + state.lCable * didtVal);
+          const y = height / 2 - vLoad * vScale;
+
+          if (x === 0) waveformCtx.moveTo(x, y);
+          else waveformCtx.lineTo(x, y);
+        }
+        waveformCtx.stroke();
+      }
+
+      // 3. Individual Harmonic Waves
+      const harmonicColors = { 3: '#6366f1', 5: '#a855f7', 7: '#ec4899', 9: '#f43f5e', 11: '#f97316' };
+
+      Object.keys(state.showHarmonics).forEach(h => {
+        const order = parseInt(h);
+        if (state.showHarmonics[order] && state.harmonics[order] > 0) {
+          waveformCtx.beginPath();
+          waveformCtx.strokeStyle = harmonicColors[order];
+          waveformCtx.lineWidth = 1.5;
+          waveformCtx.setLineDash([3, 3]);
+
+          for (let x = 0; x < width; x++) {
+            const tRad = (x / width) * (Math.PI * 2 * numCycles);
+            const hVal = iFundamentalPeak * state.harmonics[order] * Math.sin(order * (tRad - phiRad));
+            const y = height / 2 - hVal * iScale;
+            if (x === 0) waveformCtx.moveTo(x, y);
+            else waveformCtx.lineTo(x, y);
+          }
+          waveformCtx.stroke();
+          waveformCtx.setLineDash([]);
+        }
+      });
+
+      // 4. Total Current Wave i(t) - Cyan
+      waveformCtx.beginPath();
+      waveformCtx.strokeStyle = '#22d3ee'; // cyan-400
+      waveformCtx.lineWidth = 2.5;
+
+      for (let x = 0; x < width; x++) {
+        const tRad = (x / width) * (Math.PI * 2 * numCycles);
+        
+        let iValFrac = Math.sin(tRad - phiRad);
+        Object.keys(state.harmonics).forEach(h => {
+          const order = parseInt(h);
+          iValFrac += state.harmonics[h] * Math.sin(order * (tRad - phiRad));
+        });
+
+        const iTotalVal = iFundamentalPeak * iValFrac;
+        const y = height / 2 - iTotalVal * iScale;
+
+        if (x === 0) waveformCtx.moveTo(x, y);
+        else waveformCtx.lineTo(x, y);
+      }
+      waveformCtx.stroke();
+    }
+
+    function drawSpectrum() {
+      const width = spectrumCanvas.width;
+      const height = spectrumCanvas.height;
+
+      spectrumCtx.clearRect(0, 0, width, height);
+
+      const orders = [1, 3, 5, 7, 9, 11];
+      const labels = ['50Hz', '150Hz', '250Hz', '350Hz', '450Hz', '550Hz'];
+      
+      const rmsValues = [
+        state.i1Rms,
+        state.i1Rms * state.harmonics[3],
+        state.i1Rms * state.harmonics[5],
+        state.i1Rms * state.harmonics[7],
+        state.i1Rms * state.harmonics[9],
+        state.i1Rms * state.harmonics[11]
+      ];
+
+      const maxRms = Math.max(...rmsValues, 1);
+      const barWidth = width / (orders.length * 1.8);
+      const gap = (width - barWidth * orders.length) / (orders.length + 1);
+
+      const barColors = ['#22d3ee', '#6366f1', '#a855f7', '#ec4899', '#f43f5e', '#f97316'];
+
+      orders.forEach((order, index) => {
+        const val = rmsValues[index];
+        const barHeight = (val / maxRms) * (height - 40);
+        const x = gap + index * (barWidth + gap);
+        const y = height - 24 - barHeight;
+
+        spectrumCtx.fillStyle = barColors[index];
+        spectrumCtx.beginPath();
+        spectrumCtx.roundRect(x, y, barWidth, barHeight, [4, 4, 0, 0]);
+        spectrumCtx.fill();
+
+        spectrumCtx.fillStyle = '#94a3b8';
+        spectrumCtx.font = '10px Inter, sans-serif';
+        spectrumCtx.textAlign = 'center';
+        if (val > 0) {
+          spectrumCtx.fillText(`${val.toFixed(1)}A`, x + barWidth / 2, y - 5);
+        }
+
+        spectrumCtx.fillStyle = '#64748b';
+        spectrumCtx.fillText(labels[index], x + barWidth / 2, height - 8);
+      });
+    }
+
+    function resizeCanvases() {
+      const wContainer = waveformCanvas.parentElement;
+      waveformCanvas.width = wContainer.clientWidth * window.devicePixelRatio;
+      waveformCanvas.height = wContainer.clientHeight * window.devicePixelRatio;
+      waveformCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      const sContainer = spectrumCanvas.parentElement;
+      spectrumCanvas.width = sContainer.clientWidth * window.devicePixelRatio;
+      spectrumCanvas.height = sContainer.clientHeight * window.devicePixelRatio;
+      spectrumCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      updateCalculations();
+    }
+
+    window.onload = function() {
+      lucide.createIcons();
+      if (typeof renderMathInElement === 'function') {
+        renderMathInElement(document.body, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false}
+          ]
+        });
+      }
+
+      initListeners();
+      resizeCanvases();
+    };
+  </script>
+</body>
+</html>

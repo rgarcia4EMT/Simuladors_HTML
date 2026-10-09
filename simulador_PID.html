@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Control PID de Llaç Tancat</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* === ESTILS GENERALS I TIPOGRAFIA === */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc;
+        }
+
+        .code-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* === SCROLLBAR PERSONALITZAT === */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        /* === INPUT RANGE SLIDERS === */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 3px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -5px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+            transition: transform 0.1s ease, background-color 0.1s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #7dd3fc;
+        }
+
+        /* Estil específic per al lliscador PID */
+        .slider-pid::-webkit-slider-thumb {
+            background: #6366f1;
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+        }
+        .slider-pid::-webkit-slider-thumb:hover {
+            background: #818cf8;
+        }
+
+        /* Estil específic per al lliscador de temps (Navegació horitzontal) */
+        .slider-time::-webkit-slider-thumb {
+            background: #f59e0b; /* Amber */
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+            width: 20px;
+            height: 20px;
+            margin-top: -7px;
+        }
+        .slider-time::-webkit-slider-thumb:hover {
+            background: #fbbf24;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col bg-slate-950 text-slate-100">
+
+    <!-- =========================================================================
+         1. CAPÇALERA SUPERIOR (HEADER)
+         ========================================================================= -->
+    <header class="h-14 border-b border-slate-800 bg-slate-900/80 backdrop-blur px-6 flex items-center justify-between shrink-0 z-10">
+        <div class="flex items-center space-x-3">
+            <!-- Institut Granollers EMT Logo -->
+            <div class="flex items-center">
+                <div id="center-logo-container" class="flex items-center bg-white px-3 py-1.5 rounded-xl shadow-md border border-slate-200 shrink-0">
+                    <svg class="h-9 w-auto" viewBox="0 0 330 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Left Text: institut granollers -->
+                        <text x="5" y="36" font-family="'Inter', -apple-system, sans-serif" font-weight="900" font-size="34" fill="#262626">institut</text>
+                        <text x="5" y="74" font-family="'Inter', -apple-system, sans-serif" font-weight="700" font-size="36" fill="#737373">granollers</text>
+                        <!-- Right Badge: EMT -->
+                        <rect x="190" y="8" width="135" height="74" rx="16" fill="#C82829"/>
+                        <text x="257" y="60" font-family="'Inter', -apple-system, sans-serif" font-weight="900" font-size="48" fill="#FFFFFF" text-anchor="middle">EMT</text>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="p-2 bg-indigo-600/20 text-indigo-400 rounded-lg border border-indigo-500/30">
+                <i class="fa-solid font-bold fa-chart-line text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-base font-semibold tracking-wide text-slate-100">Simulador de Control PID de Llaç Tancat</h1>
+                <p class="text-xs text-slate-400">Explorador temporal dinàmic per a sistemes ràpids i de resposta lenta</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <button id="reset-btn" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md border border-slate-700 transition flex items-center space-x-2">
+                <i class="fa-solid fa-rotate-left"></i>
+                <span>Restablir valors</span>
+            </button>
+            
+            <div class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                Simulació en Temps Real (50s)
+            </div>
+        </div>
+    </header>
+
+    <!-- =========================================================================
+         2. COS PRINCIPAL DE L'APLICACIÓ (MAIN LAYOUT)
+         ========================================================================= -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- ---------------------------------------------------------------------
+             COLUMNA ESQUERRA: CONTROLS DE LA PLANTA I PID
+             --------------------------------------------------------------------- -->
+        <aside class="w-80 lg:w-96 border-r border-slate-800 bg-slate-900/50 flex flex-col overflow-y-auto p-4 space-y-4 shrink-0">
+            
+            <!-- PRESETS DE RESPOSTA RÀPIDA -->
+            <div class="bg-slate-900 rounded-xl border border-slate-800 p-4 shadow-sm">
+                <div class="flex items-center justify-between mb-2 border-b border-slate-800 pb-2">
+                    <h2 class="text-sm font-semibold text-emerald-400 flex items-center gap-2">
+                        <i class="fa-solid fa-bookmark text-xs"></i>
+                        Presets de Resposta
+                    </h2>
+                    <span class="text-[10px] text-slate-400">1-Clic</span>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 pt-1">
+                    <button onclick="applyPreset('subesmorteit')" class="px-2 py-1.5 text-xs font-medium bg-slate-800 hover:bg-emerald-600/20 hover:text-emerald-400 text-slate-300 rounded border border-slate-700/80 transition text-left truncate flex items-center gap-1">
+                        <span>⚡</span> Subesmorteït
+                    </button>
+                    <button onclick="applyPreset('critic')" class="px-2 py-1.5 text-xs font-medium bg-slate-800 hover:bg-emerald-600/20 hover:text-emerald-400 text-slate-300 rounded border border-slate-700/80 transition text-left truncate flex items-center gap-1">
+                        <span>🎯</span> Críticament Esm.
+                    </button>
+                    <button onclick="applyPreset('lenta')" class="px-2 py-1.5 text-xs font-medium bg-slate-800 hover:bg-amber-600/20 hover:text-amber-400 text-slate-300 rounded border border-slate-700/80 transition text-left truncate flex items-center gap-1">
+                        <span>🐢</span> Resposta Molt Lenta
+                    </button>
+                    <button onclick="applyPreset('sobreesmorteit')" class="px-2 py-1.5 text-xs font-medium bg-slate-800 hover:bg-emerald-600/20 hover:text-emerald-400 text-slate-300 rounded border border-slate-700/80 transition text-left truncate flex items-center gap-1">
+                        <span>🛡️</span> Sobreesmorteït
+                    </button>
+                    <button onclick="applyPreset('oscilant')" class="px-2 py-1.5 text-xs font-medium bg-slate-800 hover:bg-rose-600/20 hover:text-rose-400 text-slate-300 rounded border border-slate-700/80 transition text-left truncate flex items-center gap-1">
+                        <span>⚠️</span> Oscil·lant / Límit
+                    </button>
+                    <button onclick="applyPreset('optim')" class="px-2 py-1.5 text-xs font-medium bg-slate-800 hover:bg-sky-600/20 hover:text-sky-400 text-slate-300 rounded border border-slate-700/80 transition text-left truncate flex items-center gap-1">
+                        <span>✨</span> Robust / Òptim
+                    </button>
+                </div>
+            </div>
+
+            <!-- PARÀMETRES FÍSICS DE LA PLANTA -->
+            <div class="bg-slate-900 rounded-xl border border-slate-800 p-4 shadow-sm">
+                <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+                    <h2 class="text-sm font-semibold text-sky-400 flex items-center gap-2">
+                        <i class="fa-solid fa-gears text-xs"></i>
+                        Paràmetres de la Planta <i>G(s)</i>
+                    </h2>
+                    <span class="text-[10px] code-font text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">1/(Js²+bs+k)</span>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Inèrcia / Massa (J) -->
+                    <div>
+                        <div class="flex justify-between items-center text-xs mb-1">
+                            <label for="param-j" class="text-slate-300 font-medium">Inèrcia / Massa (<i>J</i>)</label>
+                            <span id="val-j" class="code-font text-sky-400 font-bold">1.00</span>
+                        </div>
+                        <input type="range" id="param-j" min="0.1" max="10.0" step="0.1" value="1.0" class="w-full">
+                        <p class="text-[11px] text-slate-500 mt-0.5">Més inèrcia genera respostes més lentes.</p>
+                    </div>
+
+                    <!-- Fricció / Esmorteïment (b) -->
+                    <div>
+                        <div class="flex justify-between items-center text-xs mb-1">
+                            <label for="param-b" class="text-slate-300 font-medium">Fricció / Esmorteïment (<i>b</i>)</label>
+                            <span id="val-b" class="code-font text-sky-400 font-bold">0.50</span>
+                        </div>
+                        <input type="range" id="param-b" min="0.0" max="10.0" step="0.1" value="0.5" class="w-full">
+                        <p class="text-[11px] text-slate-500 mt-0.5">Esmorteeix les oscil·lacions del sistema.</p>
+                    </div>
+
+                    <!-- Rigidesa / Constant de retorn (k) -->
+                    <div>
+                        <div class="flex justify-between items-center text-xs mb-1">
+                            <label for="param-k" class="text-slate-300 font-medium">Rigidesa / Restitució (<i>k</i>)</label>
+                            <span id="val-k" class="code-font text-sky-400 font-bold">1.00</span>
+                        </div>
+                        <input type="range" id="param-k" min="0.0" max="5.0" step="0.1" value="1.0" class="w-full">
+                        <p class="text-[11px] text-slate-500 mt-0.5">Força d'oposició interna del procés.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GUANYS DEL CONTROLADOR PID -->
+            <div class="bg-slate-900 rounded-xl border border-slate-800 p-4 shadow-sm">
+                <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+                    <h2 class="text-sm font-semibold text-indigo-400 flex items-center gap-2">
+                        <i class="fa-solid fa-microchip text-xs"></i>
+                        Controlador PID <i>G<sub>c</sub>(s)</i>
+                    </h2>
+                    <span class="text-[10px] code-font text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">Kp + Ki/s + Kd·s</span>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Kp -->
+                    <div>
+                        <div class="flex justify-between items-center text-xs mb-1">
+                            <label for="param-kp" class="text-slate-300 font-medium">Guany Proporcional (<i>K<sub>p</sub></i>)</label>
+                            <span id="val-kp" class="code-font text-indigo-400 font-bold">4.00</span>
+                        </div>
+                        <input type="range" id="param-kp" min="0.0" max="20.0" step="0.2" value="4.0" class="w-full slider-pid">
+                    </div>
+
+                    <!-- Ki -->
+                    <div>
+                        <div class="flex justify-between items-center text-xs mb-1">
+                            <label for="param-ki" class="text-slate-300 font-medium">Guany Integral (<i>K<sub>i</sub></i>)</label>
+                            <span id="val-ki" class="code-font text-indigo-400 font-bold">1.00</span>
+                        </div>
+                        <input type="range" id="param-ki" min="0.0" max="10.0" step="0.1" value="1.0" class="w-full slider-pid">
+                    </div>
+
+                    <!-- Kd -->
+                    <div>
+                        <div class="flex justify-between items-center text-xs mb-1">
+                            <label for="param-kd" class="text-slate-300 font-medium">Guany Derivatiu (<i>K<sub>d</sub></i>)</label>
+                            <span id="val-kd" class="code-font text-indigo-400 font-bold">1.00</span>
+                        </div>
+                        <input type="range" id="param-kd" min="0.0" max="10.0" step="0.1" value="1.0" class="w-full slider-pid">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ENTRADA I SATURACIÓ -->
+            <div class="bg-slate-900 rounded-xl border border-slate-800 p-4 shadow-sm">
+                <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+                    <h2 class="text-sm font-semibold text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-xs"></i>
+                        Entrada i Actuador
+                    </h2>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between items-center text-xs mb-1">
+                            <label for="param-r" class="text-slate-300 font-medium">Amplitud Escaló (<i>r</i>)</label>
+                            <span id="val-r" class="code-font text-amber-400 font-bold">1.00</span>
+                        </div>
+                        <input type="range" id="param-r" min="0.1" max="5.0" step="0.1" value="1.0" class="w-full">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center text-xs mb-1">
+                            <label for="param-umax" class="text-slate-300 font-medium">Saturació Màxima <i>U<sub>màx</sub></i></label>
+                            <span id="val-umax" class="code-font text-amber-400 font-bold">Sense límit</span>
+                        </div>
+                        <input type="range" id="param-umax" min="2" max="20" step="1" value="20" class="w-full">
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- ---------------------------------------------------------------------
+             COLUMNA DRETA: KPI, GRÀFIC I NAVEGADOR TEMPORAL (PANNING)
+             --------------------------------------------------------------------- -->
+        <section class="flex-1 flex flex-col p-4 bg-slate-950 overflow-hidden space-y-3">
+            
+            <!-- TARGETES KPI SUPERIORS -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 shrink-0">
+                
+                <div class="bg-slate-900/80 rounded-xl border border-slate-800/80 p-3 flex flex-col justify-between">
+                    <div class="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+                        <span>Temps de Pujada (<i>t<sub>r</sub></i>)</span>
+                        <i class="fa-solid fa-arrow-trend-up text-xs text-sky-400"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline justify-between">
+                        <span id="kpi-tr" class="text-lg font-bold code-font text-slate-100">-- s</span>
+                        <span class="text-[10px] text-slate-500">10% a 90%</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/80 rounded-xl border border-slate-800/80 p-3 flex flex-col justify-between">
+                    <div class="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+                        <span>Sobreoscil·lació (<i>M<sub>p</sub></i>)</span>
+                        <i class="fa-solid fa-chart-line-up text-xs text-rose-400"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline justify-between">
+                        <span id="kpi-mp" class="text-lg font-bold code-font text-slate-100">-- %</span>
+                        <span id="kpi-peak" class="text-[10px] text-slate-500">Pic màx</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/80 rounded-xl border border-slate-800/80 p-3 flex flex-col justify-between">
+                    <div class="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+                        <span>Temps Estabilització (<i>t<sub>s</sub></i>)</span>
+                        <i class="fa-solid fa-clock text-xs text-emerald-400"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline justify-between">
+                        <span id="kpi-ts" class="text-lg font-bold code-font text-slate-100">-- s</span>
+                        <span class="text-[10px] text-slate-500">Banda ±2%</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/80 rounded-xl border border-slate-800/80 p-3 flex flex-col justify-between">
+                    <div class="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+                        <span>Error Permanent (<i>e<sub>ss</sub></i>)</span>
+                        <i class="fa-solid fa-bullseye text-xs text-amber-400"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline justify-between">
+                        <span id="kpi-ess" class="text-lg font-bold code-font text-slate-100">--</span>
+                        <span class="text-[10px] text-slate-500">a <i>t</i> = 50s</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/80 rounded-xl border border-slate-800/80 p-3 flex flex-col justify-between col-span-2 sm:col-span-1">
+                    <div class="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+                        <span>Pic Acció <i>U(t)</i></span>
+                        <i class="fa-solid fa-bolt text-xs text-purple-400"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline justify-between">
+                        <span id="kpi-umax" class="text-lg font-bold code-font text-purple-400">-- U</span>
+                        <span class="text-[10px] text-slate-500">Esforç màx</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- CONTENIDOR PRINCIPAL DEL GRÀFIC -->
+            <div class="flex-1 bg-slate-900 rounded-xl border border-slate-800 p-4 flex flex-col min-h-0 relative shadow-inner">
+                
+                <!-- Capçalera del gràfic i llegenda -->
+                <div class="flex flex-wrap items-center justify-between mb-2 gap-2 shrink-0">
+                    <div class="flex items-center space-x-4 text-xs font-medium">
+                        <div class="flex items-center space-x-1.5">
+                            <span class="w-3 h-1 rounded-full bg-amber-400"></span>
+                            <span class="text-slate-300">Referència <i>r(t)</i></span>
+                        </div>
+                        <div class="flex items-center space-x-1.5">
+                            <span class="w-3 h-1 rounded-full bg-sky-400"></span>
+                            <span class="text-slate-300">Sortida <i>y(t)</i></span>
+                        </div>
+                        <div class="flex items-center space-x-1.5">
+                            <span class="w-3 h-1 rounded-full bg-purple-500"></span>
+                            <span class="text-slate-300">Acció <i>u(t)</i></span>
+                        </div>
+                    </div>
+                    <div class="text-[11px] text-slate-400 italic font-mono bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/50">
+                        Finestra visible: <span id="time-window-label" class="text-amber-400 font-bold">0.0 s — 10.0 s</span> (Finestra fixa de 10s)
+                    </div>
+                </div>
+
+                <!-- Canvas del Gràfic -->
+                <div class="flex-1 w-full h-full min-h-0 relative">
+                    <canvas id="pidChart"></canvas>
+                </div>
+
+                <!-- BARRA DE DESPLAÇAMENT TEMPORAL (PANNING BAR) SOTA EL GRÀFIC -->
+                <div class="mt-3 pt-3 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/60">
+                    
+                    <div class="flex items-center space-x-2 text-xs text-amber-400 font-medium shrink-0">
+                        <i class="fa-solid fa-left-right text-amber-400"></i>
+                        <span>Desplaçament Temporal:</span>
+                    </div>
+
+                    <!-- Lliscador de desplaçament horitzontal de temps (0s a 40s -> finestra de t_start a t_start+10) -->
+                    <div class="flex-1 w-full flex items-center space-x-3 px-2">
+                        <span class="text-[11px] code-font text-slate-400">0s</span>
+                        <input type="range" id="time-pan-slider" min="0" max="40" step="0.5" value="0" class="w-full slider-time">
+                        <span class="text-[11px] code-font text-slate-400">50s</span>
+                    </div>
+
+                    <!-- Botons de Salt Ràpid de Finestra -->
+                    <div class="flex items-center space-x-1 shrink-0">
+                        <button onclick="setWindowStart(0)" class="px-2 py-1 text-[11px] font-mono bg-slate-800 hover:bg-amber-500/20 hover:text-amber-300 text-slate-300 rounded border border-slate-700 transition">
+                            0-10s
+                        </button>
+                        <button onclick="setWindowStart(10)" class="px-2 py-1 text-[11px] font-mono bg-slate-800 hover:bg-amber-500/20 hover:text-amber-300 text-slate-300 rounded border border-slate-700 transition">
+                            10-20s
+                        </button>
+                        <button onclick="setWindowStart(20)" class="px-2 py-1 text-[11px] font-mono bg-slate-800 hover:bg-amber-500/20 hover:text-amber-300 text-slate-300 rounded border border-slate-700 transition">
+                            20-30s
+                        </button>
+                        <button onclick="setWindowStart(40)" class="px-2 py-1 text-[11px] font-mono bg-slate-800 hover:bg-amber-500/20 hover:text-amber-300 text-slate-300 rounded border border-slate-700 transition">
+                            40-50s
+                        </button>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+    </main>
+
+    <!-- =========================================================================
+         3. LÒGICA JAVASCRIPT: SIMULACIÓ FÍSICA I NAVEGACIÓ TEMPORAL
+         ========================================================================= -->
+    <script>
+        /* === 3.1 CAPTURA D'ELEMENTS DEL DOM === */
+        const inputJ = document.getElementById('param-j');
+        const inputB = document.getElementById('param-b');
+        const inputK = document.getElementById('param-k');
+
+        const inputKp = document.getElementById('param-kp');
+        const inputKi = document.getElementById('param-ki');
+        const inputKd = document.getElementById('param-kd');
+
+        const inputR = document.getElementById('param-r');
+        const inputUmax = document.getElementById('param-umax');
+        const timePanSlider = document.getElementById('time-pan-slider');
+
+        // Valors numèrics en text
+        const valJ = document.getElementById('val-j');
+        const valB = document.getElementById('val-b');
+        const valK = document.getElementById('val-k');
+        const valKp = document.getElementById('val-kp');
+        const valKi = document.getElementById('val-ki');
+        const valKd = document.getElementById('val-kd');
+        const valR = document.getElementById('val-r');
+        const valUmax = document.getElementById('val-umax');
+        const timeWindowLabel = document.getElementById('time-window-label');
+
+        // KPIs
+        const kpiTr = document.getElementById('kpi-tr');
+        const kpiMp = document.getElementById('kpi-mp');
+        const kpiTs = document.getElementById('kpi-ts');
+        const kpiEss = document.getElementById('kpi-ess');
+        const kpiUmax = document.getElementById('kpi-umax');
+
+        const resetBtn = document.getElementById('reset-btn');
+
+        // Variables globals de simulació
+        let chartInstance = null;
+        let globalSimData = {
+            time: [],
+            reference: [],
+            output: [],
+            control: []
+        };
+
+        const WINDOW_SIZE = 10.0; // Finestra fixada en 10 segons exactes
+        const TOTAL_SIM_TIME = 50.0; // Simulació completa de 50 segons
+
+        /* === 3.2 INICIALITZACIÓ DEL GRÀFIC CHART.JS === */
+        function initChart() {
+            const ctx = document.getElementById('pidChart').getContext('2d');
+            
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Referència r(t)',
+                            data: [],
+                            borderColor: '#fbbf24',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            yAxisID: 'yLeft',
+                            tension: 0
+                        },
+                        {
+                            label: 'Sortida y(t)',
+                            data: [],
+                            borderColor: '#38bdf8',
+                            borderWidth: 2.5,
+                            pointRadius: 0,
+                            yAxisID: 'yLeft',
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Acció de Control u(t)',
+                            data: [],
+                            borderColor: '#a855f7',
+                            borderWidth: 1.8,
+                            pointRadius: 0,
+                            backgroundColor: 'rgba(168, 85, 247, 0.05)',
+                            fill: true,
+                            yAxisID: 'yRight',
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false, // Desactivat per aconseguir desplaçament instantani al moure el lliscador
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#0f172a',
+                            titleColor: '#f8fafc',
+                            bodyColor: '#cbd5e1',
+                            borderColor: '#334155',
+                            borderWidth: 1,
+                            padding: 10,
+                            callbacks: {
+                                title: (items) => `Temps t = ${items[0].label} s`,
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(3);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            min: 0,
+                            max: 10,
+                            title: {
+                                display: true,
+                                text: 'Temps t [s]',
+                                color: '#94a3b8',
+                                font: { size: 12, weight: '500' }
+                            },
+                            grid: { color: 'rgba(51, 65, 85, 0.4)' },
+                            ticks: { 
+                                color: '#64748b', 
+                                font: { family: 'JetBrains Mono' },
+                                stepSize: 1
+                            }
+                        },
+                        yLeft: {
+                            type: 'linear',
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Sortida y(t) / Referència r(t) [unitats]',
+                                color: '#38bdf8',
+                                font: { size: 12, weight: '600' }
+                            },
+                            grid: { color: 'rgba(51, 65, 85, 0.4)' },
+                            ticks: { color: '#38bdf8', font: { family: 'JetBrains Mono' } }
+                        },
+                        yRight: {
+                            type: 'linear',
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Acció de Control U(t) [V / N]',
+                                color: '#a855f7',
+                                font: { size: 12, weight: '600' }
+                            },
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#a855f7', font: { family: 'JetBrains Mono' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        /* === 3.3 MOTOR DE SIMULACIÓ FÍSICA A 50 SEGONS (RK4) === */
+        function simulatePID() {
+            const J = parseFloat(inputJ.value);
+            const b = parseFloat(inputB.value);
+            const k = parseFloat(inputK.value);
+
+            const Kp = parseFloat(inputKp.value);
+            const Ki = parseFloat(inputKi.value);
+            const Kd = parseFloat(inputKd.value);
+
+            const rVal = parseFloat(inputR.value);
+            const uMaxVal = parseFloat(inputUmax.value);
+            const hasLimit = uMaxVal < 20;
+
+            const dt = 0.005; // 5 ms
+            const steps = Math.floor(TOTAL_SIM_TIME / dt);
+
+            let t = 0;
+            let y = 0;
+            let v = 0;
+            let integralErr = 0;
+            let prevErr = rVal - y;
+
+            globalSimData = { time: [], reference: [], output: [], control: [] };
+
+            let maxOutput = 0;
+            let maxControl = 0;
+            let riseTime10 = -1;
+            let riseTime90 = -1;
+            let settlingTime = -1;
+
+            const downsample = 4; // Un punt cada 20ms per suavitat i velocitat
+
+            for (let i = 0; i <= steps; i++) {
+                t = i * dt;
+                const r = rVal;
+
+                const err = r - y;
+                const derivativeErr = (err - prevErr) / dt;
+                
+                let uUnclamped = Kp * err + Ki * integralErr + Kd * derivativeErr;
+                let u = uUnclamped;
+
+                if (hasLimit) {
+                    if (u > uMaxVal) u = uMaxVal;
+                    if (u < -uMaxVal) u = -uMaxVal;
+
+                    if (Math.abs(uUnclamped) <= uMaxVal || (err * uUnclamped < 0)) {
+                        integralErr += err * dt;
+                    }
+                } else {
+                    integralErr += err * dt;
+                }
+
+                // Ecuació diferencial: J*y'' + b*y' + k*y = u
+                const f = (yCurr, vCurr, uCurr) => (uCurr - b * vCurr - k * yCurr) / J;
+
+                // RK4
+                const k1v = f(y, v, u);
+                const k1y = v;
+
+                const k2v = f(y + 0.5 * dt * k1y, v + 0.5 * dt * k1v, u);
+                const k2y = v + 0.5 * dt * k1v;
+
+                const k3v = f(y + 0.5 * dt * k2y, v + 0.5 * dt * k2v, u);
+                const k3y = v + 0.5 * dt * k2v;
+
+                const k4v = f(y + dt * k3y, v + dt * k3v, u);
+                const k4y = v + dt * k3v;
+
+                y += (dt / 6) * (k1y + 2 * k2y + 2 * k3y + k4y);
+                v += (dt / 6) * (k1v + 2 * k2v + 2 * k3v + k4v);
+
+                prevErr = err;
+
+                if (y > maxOutput) maxOutput = y;
+                if (Math.abs(u) > maxControl) maxControl = Math.abs(u);
+
+                if (riseTime10 < 0 && y >= 0.1 * rVal) riseTime10 = t;
+                if (riseTime90 < 0 && y >= 0.9 * rVal) riseTime90 = t;
+
+                if (Math.abs(y - rVal) > 0.02 * rVal) {
+                    settlingTime = t;
+                }
+
+                if (i % downsample === 0) {
+                    globalSimData.time.push(parseFloat(t.toFixed(2)));
+                    globalSimData.reference.push(r);
+                    globalSimData.output.push(parseFloat(y.toFixed(3)));
+                    globalSimData.control.push(parseFloat(u.toFixed(2)));
+                }
+            }
+
+            // Actualitzar mètriques generals calculades sobre el total de 50s
+            const riseTime = (riseTime10 >= 0 && riseTime90 >= 0) ? (riseTime90 - riseTime10).toFixed(2) + ' s' : 'N/A';
+            const overshoot = maxOutput > rVal ? (((maxOutput - rVal) / rVal) * 100).toFixed(1) + ' %' : '0.0 %';
+            const ess = Math.abs(rVal - y).toFixed(3);
+            const tsStr = settlingTime > 0 && settlingTime < TOTAL_SIM_TIME ? settlingTime.toFixed(2) + ' s' : '> 50.0 s';
+
+            kpiTr.textContent = riseTime;
+            kpiMp.textContent = overshoot;
+            kpiTs.textContent = tsStr;
+            kpiEss.textContent = ess;
+            kpiUmax.textContent = maxControl.toFixed(1) + ' U';
+
+            // Fixar els límits dels eixos Y (esquerre i dret) calculats sobre tota la simulació de 50s.
+            // Això evita que l'escala es re-ajusti dinàmicament al fer panning en el temps.
+            const minYVal = Math.min(...globalSimData.output, ...globalSimData.reference);
+            const maxYVal = Math.max(...globalSimData.output, ...globalSimData.reference);
+            let rangeY = maxYVal - minYVal;
+            if (rangeY === 0) rangeY = 1;
+            const paddedMinY = minYVal < 0 ? minYVal - rangeY * 0.08 : Math.min(-0.05, minYVal - rangeY * 0.08);
+            const paddedMaxY = maxYVal + rangeY * 0.08;
+
+            const minUVal = Math.min(...globalSimData.control);
+            const maxUVal = Math.max(...globalSimData.control);
+            let rangeU = maxUVal - minUVal;
+            if (rangeU === 0) rangeU = 1;
+            const paddedMinU = minUVal < 0 ? minUVal - rangeU * 0.08 : Math.min(-0.1, minUVal - rangeU * 0.08);
+            const paddedMaxU = maxUVal + rangeU * 0.08;
+
+            // Assignar valors mínims i màxims fixos a l'escala de Chart.js
+            chartInstance.options.scales.yLeft.min = parseFloat(paddedMinY.toFixed(2));
+            chartInstance.options.scales.yLeft.max = parseFloat(paddedMaxY.toFixed(2));
+            chartInstance.options.scales.yRight.min = parseFloat(paddedMinU.toFixed(2));
+            chartInstance.options.scales.yRight.max = parseFloat(paddedMaxU.toFixed(2));
+
+            // Dibuixar la finestra temporal seleccionada
+            renderTimeWindow();
+        }
+
+        /* === 3.4 FILTRATGE I RENDERITZAT DE LA FINESTRA TEMPORAL === */
+        function renderTimeWindow() {
+            const tStart = parseFloat(timePanSlider.value);
+            const tEnd = tStart + WINDOW_SIZE;
+
+            // Filtrar les dades simulades per mostrar només l'interval [tStart, tEnd]
+            const startIndex = globalSimData.time.findIndex(t => t >= tStart);
+            const endIndex = globalSimData.time.findIndex(t => t >= tEnd);
+
+            const sliceEnd = endIndex === -1 ? globalSimData.time.length : endIndex + 1;
+            const sliceStart = startIndex === -1 ? 0 : startIndex;
+
+            const timeSlice = globalSimData.time.slice(sliceStart, sliceEnd);
+            const refSlice = globalSimData.reference.slice(sliceStart, sliceEnd);
+            const outSlice = globalSimData.output.slice(sliceStart, sliceEnd);
+            const ctrlSlice = globalSimData.control.slice(sliceStart, sliceEnd);
+
+            // Ajustar l'eix X del gràfic a l'interval desitjat
+            chartInstance.options.scales.x.min = tStart;
+            chartInstance.options.scales.x.max = tEnd;
+
+            chartInstance.data.labels = timeSlice;
+            chartInstance.data.datasets[0].data = refSlice;
+            chartInstance.data.datasets[1].data = outSlice;
+            chartInstance.data.datasets[2].data = ctrlSlice;
+
+            chartInstance.update();
+
+            // Actualitzar l'etiqueta indicadora
+            timeWindowLabel.textContent = `${tStart.toFixed(1)} s — ${tEnd.toFixed(1)} s`;
+        }
+
+        function setWindowStart(timeVal) {
+            timePanSlider.value = timeVal;
+            renderTimeWindow();
+        }
+
+        /* === 3.5 ETIQUETES DE TEXT I PRESETS === */
+        function updateLabels() {
+            valJ.textContent = parseFloat(inputJ.value).toFixed(2);
+            valB.textContent = parseFloat(inputB.value).toFixed(2);
+            valK.textContent = parseFloat(inputK.value).toFixed(2);
+            valKp.textContent = parseFloat(inputKp.value).toFixed(2);
+            valKi.textContent = parseFloat(inputKi.value).toFixed(2);
+            valKd.textContent = parseFloat(inputKd.value).toFixed(2);
+            valR.textContent = parseFloat(inputR.value).toFixed(2);
+
+            const uMaxVal = parseFloat(inputUmax.value);
+            valUmax.textContent = uMaxVal >= 20 ? 'Sense límit' : `±${uMaxVal.toFixed(0)} U`;
+        }
+
+        function onControlChange() {
+            updateLabels();
+            simulatePID();
+        }
+
+        function resetValues() {
+            inputJ.value = 1.0;
+            inputB.value = 0.5;
+            inputK.value = 1.0;
+            inputKp.value = 4.0;
+            inputKi.value = 1.0;
+            inputKd.value = 1.0;
+            inputR.value = 1.0;
+            inputUmax.value = 20;
+            timePanSlider.value = 0;
+
+            onControlChange();
+        }
+
+        const presets = {
+            subesmorteit:   { J: 1.0, b: 0.3, k: 1.0, Kp: 8.0,  Ki: 1.0, Kd: 0.5, r: 1.0, umax: 20 },
+            critic:         { J: 1.0, b: 1.0, k: 1.0, Kp: 3.0,  Ki: 0.8, Kd: 2.0, r: 1.0, umax: 20 },
+            lenta:          { J: 8.0, b: 4.0, k: 0.5, Kp: 1.2,  Ki: 0.2, Kd: 0.5, r: 1.0, umax: 20 },
+            sobreesmorteit: { J: 2.0, b: 3.0, k: 1.0, Kp: 1.5,  Ki: 0.2, Kd: 0.2, r: 1.0, umax: 20 },
+            oscilant:       { J: 1.0, b: 0.1, k: 1.0, Kp: 14.0, Ki: 0.0, Kd: 0.0, r: 1.0, umax: 20 },
+            optim:          { J: 1.0, b: 0.5, k: 1.0, Kp: 5.0,  Ki: 1.5, Kd: 1.2, r: 1.0, umax: 20 }
+        };
+
+        function applyPreset(name) {
+            const p = presets[name];
+            if (!p) return;
+
+            inputJ.value = p.J;
+            inputB.value = p.b;
+            inputK.value = p.k;
+            inputKp.value = p.Kp;
+            inputKi.value = p.Ki;
+            inputKd.value = p.Kd;
+            inputR.value = p.r;
+            inputUmax.value = p.umax;
+
+            if (name === 'lenta') {
+                timePanSlider.value = 0;
+            }
+
+            onControlChange();
+        }
+
+        /* === 3.6 LISTENERS I EVENTS === */
+        [inputJ, inputB, inputK, inputKp, inputKi, inputKd, inputR, inputUmax].forEach(input => {
+            input.addEventListener('input', onControlChange);
+        });
+
+        timePanSlider.addEventListener('input', renderTimeWindow);
+        resetBtn.addEventListener('click', resetValues);
+
+        window.onload = function() {
+            initChart();
+            updateLabels();
+            simulatePID();
+        };
+    </script>
+</body>
+</html>
